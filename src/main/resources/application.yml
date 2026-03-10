@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:gateway-service}
+  profiles:
+    active: ${PROFILE_ACTIVE:dev}
+
+api:
+  version: ${API_VERSION:v3.0.0}
+  ems_version: ${EMS_VERSION:v3.0.0}
+
+
+logging:
+  level:
+    org:
+      springframework:
+        web: DEBUG
+        security: DEBUG

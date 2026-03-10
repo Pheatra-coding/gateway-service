@@ -1,0 +1,111 @@
+<configuration debug="false" encoding="UTF-8">
+
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+    <property name="logback.encoding" value="UTF-8"/>
+    <property name="service.name" value="gateway-service"/>
+
+    <!-- COLORFUL PATTERN -->
+    <property name="logback.pattern.console"
+              value="%cyan(%d{yyyy-MM-dd HH:mm:ss.SSS}) %highlight(%-5level) %yellow([%thread]) %green(%logger{30}) %magenta([%X{traceId:-},%X{spanId:-}]) - %msg%n"/>
+
+    <property name="logback.pattern"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{30} [%X{traceId:-},%X{spanId:-}] - %msg%n"/>
+
+    <!-- CONSOLE -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${logback.pattern.console}</pattern>
+            <charset>${logback.encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- INFO FILE -->
+    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${service.name}-info.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>logs/${service.name}-info.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${logback.pattern}</pattern>
+            <charset>${logback.encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- DEBUG FILE -->
+    <appender name="FILE_DEBUG" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${service.name}-debug.log</file>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>logs/${service.name}-debug.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <maxFileSize>300MB</maxFileSize>
+            <maxHistory>10</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${logback.pattern}</pattern>
+            <charset>${logback.encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- ERROR FILE -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/${service.name}-error.log</file>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <FileNamePattern>logs/${service.name}-error.%d{yyyy-MM-dd}.%i.log</FileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${logback.pattern}</pattern>
+            <charset>${logback.encoding}</charset>
+        </encoder>
+    </appender>
+
+    <!-- SILENCE NOISY LOGS -->
+    <logger name="com.netflix.discovery" level="WARN"/>
+    <logger name="org.springframework.web.client.RestTemplate" level="WARN"/>
+    <logger name="reactor.netty" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="org.springframework.security" level="WARN"/>
+    <logger name="org.springframework.web.HttpLogging" level="WARN"/>
+
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="io.micrometer" level="WARN"/>
+    <logger name="brave" level="WARN"/>
+
+    <!-- YOUR APP -->
+    <logger name="com.apd.gateway" level="INFO"/>
+
+    <!-- DEV / UAT -->
+    <springProfile name="dev,uat">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE_DEBUG"/>
+            <appender-ref ref="FILE_INFO"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+    </springProfile>
+
+    <!-- PROD -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="FILE_INFO"/>
+            <appender-ref ref="FILE_ERROR"/>
+        </root>
+    </springProfile>
+
+</configuration>
