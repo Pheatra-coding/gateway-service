@@ -45,42 +45,7 @@ public class SecurityConfig {
                 .addFilterAt(jwtAuthenticationWebFilter(), SecurityWebFiltersOrder.AUTHENTICATION)
 
                 /* ---------- AUTHORIZATION RULES ---------- */
-                .authorizeExchange(exchange -> exchange
-                        // Public / Swagger endpoints
-                        .pathMatchers(getSwaggerEndpoints()).permitAll()
-                        .pathMatchers(getPublicEndpoints()).permitAll()
 
-                        // Authentication endpoints
-                        .pathMatchers(eLearningApiVersion + AUTH_LOGIN).permitAll()
-                        .pathMatchers(eLearningApiVersion + AUTH_REFRESH_ACCESS).permitAll()
-
-                        // Authenticated endpoints
-                        .pathMatchers(eLearningApiVersion + AUTH_LOGOUT).authenticated()
-                        .pathMatchers(eLearningApiVersion + AUTH_DETAIL).authenticated()
-
-                        // All other requests require scope-based access
-                        .anyExchange().access(scopeAuthorizationManager)
-                )
-
-                /* ---------- EXCEPTION HANDLING ---------- */
-                .exceptionHandling(ex -> ex
-                        .authenticationEntryPoint((exchange, e) -> {
-                            log.info("Unauthorized request: {}", e.getMessage());
-                            return ErrorResponseWriter.write(
-                                    exchange,
-                                    HttpStatus.UNAUTHORIZED,
-                                    "Unauthorized: Invalid or missing token"
-                            );
-                        })
-                        .accessDeniedHandler((exchange, e) -> {
-                            log.info("Forbidden request: {}", e.getMessage());
-                            return ErrorResponseWriter.write(
-                                    exchange,
-                                    HttpStatus.FORBIDDEN,
-                                    "Access denied"
-                            );
-                        })
-                )
                 .build();
     }
 
