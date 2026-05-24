@@ -1,6 +1,7 @@
 spring:
   application:
     name: ${SPRING_APPLICATION_NAME:gateway-service}
+
   profiles:
     active: ${PROFILE_ACTIVE:dev}
 
@@ -8,10 +9,46 @@ api:
   version: ${API_VERSION:v3.0.0}
   ems_version: ${EMS_VERSION:v3.0.0}
 
+app:
+  token:
+    jwtKey: ${JWT_SECRET:myDefaultSecretKey1234567890123456}
 
-logging:
-  level:
-    org:
-      springframework:
-        web: DEBUG
-        security: DEBUG
+resilience4j:
+  circuitbreaker:
+    instances:
+
+      userServiceCB:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      employeeServiceCB:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      elearningCB:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      fileServiceCB:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true

@@ -13,13 +13,18 @@ public class FallbackController {
         throw new ServiceUnavailableException("User Service is temporarily unavailable.");
     }
 
+    @RequestMapping("/fallback/employee")
+    public Mono<Void> employeeFallback() {
+        throw new ServiceUnavailableException("Employee Service is temporarily unavailable.");
+    }
+
     @RequestMapping("/fallback/elearning")
     public Mono<Void> elearningFallback() {
         throw new ServiceUnavailableException("E-Learning Service is temporarily unavailable.");
     }
 
-    @RequestMapping("/fallback/tms")
-    public Mono<Void> tmsFallback() {
-        throw new ServiceUnavailableException("TMS Service is temporarily unavailable.");
+    @RequestMapping("/fallback/file")
+    public Mono<Void> fileFallback() {
+        throw new ServiceUnavailableException("File Service is temporarily unavailable.");
     }
 }

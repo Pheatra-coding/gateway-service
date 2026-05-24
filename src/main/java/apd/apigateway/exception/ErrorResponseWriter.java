@@ -17,25 +17,27 @@ public class ErrorResponseWriter {
             HttpStatus status,
             String message
     ) {
+
         exchange.getResponse().setStatusCode(status);
-        exchange.getResponse().getHeaders()
-                .setContentType(MediaType.APPLICATION_JSON);
+        exchange.getResponse().getHeaders().setContentType(MediaType.APPLICATION_JSON);
 
         Map<String, Object> body = Map.of(
+                "timestamp", System.currentTimeMillis(),
+                "status", status.value(),
                 "error", status.name(),
-                "message", message,
-                "code", status.value()
+                "message", message
         );
 
         try {
             byte[] bytes = mapper.writeValueAsBytes(body);
-            return exchange.getResponse()
-                    .writeWith(Mono.just(
-                            exchange.getResponse()
-                                    .bufferFactory()
-                                    .wrap(bytes)
-                    ));
-        } catch (Exception ex) {
+
+            return exchange.getResponse().writeWith(
+                    Mono.just(exchange.getResponse()
+                            .bufferFactory()
+                            .wrap(bytes))
+            );
+
+        } catch (Exception e) {
             return exchange.getResponse().setComplete();
         }
     }

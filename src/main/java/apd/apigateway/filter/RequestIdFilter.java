@@ -21,22 +21,17 @@ public class RequestIdFilter implements GlobalFilter {
 
         String requestId = exchange.getRequest().getHeaders().getFirst(HEADER_NAME);
 
-        // Generate UUID if header missing
-        if (requestId == null) {
+        if (requestId == null || requestId.isBlank()) {
             requestId = UUID.randomUUID().toString();
         }
 
-        // Add to request headers to forward downstream
         ServerHttpRequest mutatedRequest = exchange.getRequest()
                 .mutate()
                 .header(HEADER_NAME, requestId)
                 .build();
 
-        // Put into exchange attributes for LoggingFilter
         exchange.getAttributes().put(HEADER_NAME, requestId);
 
-//        log.info("Assigned Request ID: {}", requestId);
-        //TODO
         log.debug("Assigned Request ID: {}", requestId);
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build());

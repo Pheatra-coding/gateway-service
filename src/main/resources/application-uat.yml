@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:30005}
+  port: ${SERVER_PORT:8080}
 
 spring:
   main:
@@ -8,155 +8,67 @@ spring:
   cloud:
     gateway:
 
-      # =========================
-      # HTTP CLIENT CONFIG
-      # =========================
       httpclient:
-        connect-timeout: ${CONNECT-TIMEOUT:5000}
-        response-timeout: ${RESPONSE_TIMEOUT:20s}
+        connect-timeout: ${CONNECTION_TIMEOUT:5000}
+        response-timeout: ${RESPONSE_TIMEOUT:15s}
         pool:
           type: elastic
           max-idle-time: 30s
           max-life-time: 60s
 
-      # =========================
-      # GLOBAL CORS CONFIG
-      # =========================
       globalcors:
         cors-configurations:
           '[/**]':
             allowed-origins:
-              - ${CORS_ALLOWED_ORIGIN:https://ems-uat.apdbank.com.kh}
-
-            allowed-methods:
-              - GET
-              - POST
-              - PUT
-              - DELETE
-              - PATCH
-              - OPTIONS
-
-            allowed-headers:
-              - Authorization
-              - Content-Type
-              - X-Requested-With
-              - X-Request-ID
-
+              - "http://localhost:5174"
+              - "http://10.0.213.20:30001"
+            allowed-methods: [GET, POST, PUT, DELETE, OPTIONS, PATCH]
+            allowed-headers: "*"
             allow-credentials: true
             max-age: 3600
 
-        add-to-simple-url-handler-mapping: true
-
-      # =========================
-      # REMOVE DUPLICATE CORS HEADERS
-      # =========================
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 
-      # =========================
-      # SERVICE DISCOVERY
-      # =========================
       discovery:
         locator:
-          enabled: ${GATEWAY_DISCOVERY_ENABLED:true}
+          enabled: true
           lower-case-service-id: true
 
-      # =========================
-      # ROUTES
-      # =========================
       routes:
 
-        # =========================
-        # TRAINEE MANAGEMENT SYSTEM
-        # =========================
-        - id: trainee-management-system
-          uri: ${TMS_URI:lb://TRAINEE-MANAGEMENT-SYSTEM}
+        # ===========================
+        # AUTH SERVICE
+        # ===========================
+        - id: apd-auth-service
+          uri: ${AUTH_URI:lb://APD-AUTH-SERVICE}
           predicates:
-            - Path=/api/${api.ems_version}/units/**,
-              /api/${api.ems_version}/users/**,
-              /api/${api.ems_version}/statuses/**,
-              /api/${api.ems_version}/sites/**,
-              /api/${api.ems_version}/departments/**,
-              /api/${api.ems_version}/training/**,
-              /api/${api.ems_version}/report/**,
-              /api/${api.ems_version}/notification/**,
-              /api/${api.ems_version}/leave-entitlement,
-              /api/${api.ems_version}/mentor/leaves/**,
-              /api/${api.ems_version}/leave-type/**,
-              /api/${api.ems_version}/leave-employee/**,
-              /api/${api.ems_version}/holidays/**,
-              /api/${api.ems_version}/profile/**,
-              /api/${api.ems_version}/trainee/**,
-              /api/${api.ems_version}/attendances/**,
-              /api/${api.ems_version}/test/**
+            - Path=/api/${api.ems_version}/auth/**,
+              /api/${api.ems_version}/login/**,
+              /api/${api.ems_version}/refresh/**
           filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
-                redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
-                redis-rate-limiter.requestedToken: 1
-                key-resolver: "#{@userKeyResolver}"
+            - StripPrefix=0
 
-            - name: Retry
-              args:
-                retries: 2
-                methods: GET
-                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
-
-            - name: CircuitBreaker
-              args:
-                name: tmsCB
-                fallbackUri: forward:/fallback/tms
-
-        # =========================
-        # E-LEARNING SERVICE
-        # =========================
-        - id: apd-elearning
-          uri: ${ELEARNING_URI:lb://APD-ELEARNING}
-          predicates:
-            - Path=/api/${api.ems_version}/courses/**,
-              /api/${api.ems_version}/learning/**,
-              /api/${api.ems_version}/files/**
-          filters:
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
-                redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
-                redis-rate-limiter.requestedToken: 1
-                key-resolver: "#{@userKeyResolver}"
-
-            - name: Retry
-              args:
-                retries: 2
-                methods: GET
-                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
-
-            - name: CircuitBreaker
-              args:
-                name: elearningCB
-                fallbackUri: forward:/fallback/elearning
-
-        # =========================
+        # ===========================
         # USER SERVICE
-        # =========================
+        # ===========================
         - id: apd-userservice
           uri: ${USER_URI:lb://APD-USERSERVICE}
           predicates:
-            - Path=/api/${api.ems_version}/user/**,
-              /api/${api.ems_version}/roles/**,
-              /api/${api.ems_version}/auth/**
+            - Path=/api/${api.ems_version}/user/**
           filters:
+            - StripPrefix=0
             - name: RequestRateLimiter
               args:
                 redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
                 redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
-                redis-rate-limiter.requestedToken: 1
+                redis-rate-limiter.requestedTokens: 1
                 key-resolver: "#{@userKeyResolver}"
 
             - name: Retry
               args:
                 retries: 2
-                methods: GET
+                methods: GET,POST
                 statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
 
             - name: CircuitBreaker
@@ -164,74 +76,118 @@ spring:
                 name: userServiceCB
                 fallbackUri: forward:/fallback/user
 
-  # =========================
-  # REDIS CONFIG
-  # =========================
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
+        # ===========================
+        # EMPLOYEE SERVICE
+        # ===========================
+        - id: apd-employee-service
+          uri: ${EMPLOYEE_URI:lb://APD-EMPLOYEE-SERVICE}
+          predicates:
+            - Path=/api/${api.ems_version}/employee/**,
+              /api/${api.ems_version}/hr/**
+          filters:
+            - StripPrefix=0
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
+                redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
 
-# =========================
-# RESILIENCE4J
-# =========================
-resilience4j:
-  circuitbreaker:
-    instances:
-      default:
-        slidingWindowType: COUNT_BASED
-        slidingWindowSize: 20
-        minimumNumberOfCalls: 10
-        failureRateThreshold: 50
-        waitDurationInOpenState: 10s
-        permittedNumberOfCallsInHalfOpenState: 5
-        automaticTransitionFromOpenToHalfOpenEnabled: true
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET,POST
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
 
-  timelimiter:
-    instances:
-      default:
-        timeoutDuration: ${TIME_LIMITER:10s}
-        cancelRunningFuture: true
+            - name: CircuitBreaker
+              args:
+                name: employeeServiceCB
+                fallbackUri: forward:/fallback/employee
 
-# =========================
-# EUREKA
-# =========================
-eureka:
-  client:
-    fetch-registry: true
-    service-url:
-      defaultZone: ${EUREKA_DEFAULT_ZONE}
-    register-with-eureka: true
+        # ===========================
+        # E-LEARNING SERVICE
+        # ===========================
+        - id: apd-elearning
+          uri: ${ELEARNING_URI:lb://APD-ELEARNING}
+          predicates:
+            - Path=/api/${api.ems_version}/courses/**,
+              /api/${api.ems_version}/learning/**,
+              /api/${api.ems_version}/files/**
+          filters:
+            - StripPrefix=0
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
+                redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
 
-  instance:
-    prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10
-    health-check-url-path: /actuator/health
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET,POST
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
 
-# =========================
-# JWT CONFIG
-# =========================
-app:
-  token:
-    jwtKey: ${JWT_SECRET}
+            - name: CircuitBreaker
+              args:
+                name: elearningCB
+                fallbackUri: forward:/fallback/elearning
 
-# =========================
-# ACTUATOR
-# =========================
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,gateway
+        # ===========================
+        # FILE SERVICE
+        # ===========================
+        - id: apd-file-service
+          uri: ${FILE_URI:lb://APD-FILE-SERVICE}
+          predicates:
+            - Path=/api/${api.ems_version}/files/**,
+              /api/${api.ems_version}/upload/**
+          filters:
+            - StripPrefix=0
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: ${RATE_REPLENISH:10}
+                redis-rate-limiter.burstCapacity: ${BURST_CAPACITY:20}
+                redis-rate-limiter.requestedTokens: 1
+                key-resolver: "#{@userKeyResolver}"
 
-# =========================
-# SWAGGER
-# =========================
-springdoc:
-  enable-spring-security: false
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    enabled: true
+            - name: Retry
+              args:
+                retries: 2
+                methods: GET,POST
+                statuses: BAD_GATEWAY, SERVICE_UNAVAILABLE
+
+            - name: CircuitBreaker
+              args:
+                name: fileServiceCB
+                fallbackUri: forward:/fallback/file
+
+        # ===========================
+        # SWAGGER ROUTES
+        # ===========================
+        - id: auth-swagger
+          uri: ${AUTH_URI:lb://APD-AUTH-SERVICE}
+          predicates:
+            - Path=/v3/api-docs/auth
+          filters:
+            - RewritePath=/v3/api-docs/auth,/v3/api-docs
+
+        - id: user-swagger
+          uri: ${USER_URI:lb://APD-USERSERVICE}
+          predicates:
+            - Path=/v3/api-docs/user
+          filters:
+            - RewritePath=/v3/api-docs/user,/v3/api-docs
+
+        - id: employee-swagger
+          uri: ${EMPLOYEE_URI:lb://APD-EMPLOYEE-SERVICE}
+          predicates:
+            - Path=/v3/api-docs/employee
+          filters:
+            - RewritePath=/v3/api-docs/employee,/v3/api-docs
+
+        - id: elearning-swagger
+          uri: ${ELEARNING_URI:lb://APD-ELEARNING}
+          predicates:
+            - Path=/v3/api-docs/elearning
+          filters:
+            - RewritePath=/v3/api-docs/elearning,/v3/api-docs
