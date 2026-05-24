@@ -1,7 +1,0 @@
-2026-05-24 16:23:32.894 INFO  [main] a.a.EplGatewayServiceApplication [,] - Starting EplGatewayServiceApplication using Java 17.0.15 with PID 21668 (C:\Users\ASUS\Desktop\epl-gateway-service\build\classes\java\main started by ASUS in C:\Users\ASUS\Desktop\epl-gateway-service)
-2026-05-24 16:23:32.905 INFO  [main] a.a.EplGatewayServiceApplication [,] - The following 1 profile is active: "dev"
-2026-05-24 16:29:03.282 INFO  [main] a.a.EplGatewayServiceApplication [,] - Starting EplGatewayServiceApplication using Java 17.0.15 with PID 25644 (C:\Users\ASUS\Desktop\epl-gateway-service\build\classes\java\main started by ASUS in C:\Users\ASUS\Desktop\epl-gateway-service)
-2026-05-24 16:29:03.284 INFO  [main] a.a.EplGatewayServiceApplication [,] - The following 1 profile is active: "dev"
-2026-05-24 16:30:05.855 INFO  [main] a.a.EplGatewayServiceApplication [,] - Starting EplGatewayServiceApplication using Java 17.0.15 with PID 20948 (C:\Users\ASUS\Desktop\epl-gateway-service\build\classes\java\main started by ASUS in C:\Users\ASUS\Desktop\epl-gateway-service)
-2026-05-24 16:30:05.859 INFO  [main] a.a.EplGatewayServiceApplication [,] - The following 1 profile is active: "dev"
-2026-05-24 16:30:16.472 INFO  [main] a.a.EplGatewayServiceApplication [,] - Started EplGatewayServiceApplication in 11.474 seconds (process running for 12.313)
