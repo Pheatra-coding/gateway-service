@@ -14,30 +14,44 @@ import reactor.core.publisher.Mono;
 public class RateLimitLoggingFilter implements GlobalFilter, Ordered {
 
     @Override
-    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+    public Mono<Void> filter(ServerWebExchange exchange,
+                             GatewayFilterChain chain) {
 
-        return chain.filter(exchange).then(Mono.fromRunnable(() -> {
+        exchange.getResponse().beforeCommit(() -> {
 
-            if (exchange.getResponse().getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+            HttpStatus status =
+                    (HttpStatus) exchange.getResponse().getStatusCode();
+
+            if (status == HttpStatus.TOO_MANY_REQUESTS) {
 
                 String requestId = exchange.getRequest()
                         .getHeaders()
                         .getFirst("X-Request-ID");
 
-                String clientIp = exchange.getRequest()
-                        .getRemoteAddress() != null
-                        ? exchange.getRequest().getRemoteAddress().getAddress().getHostAddress()
-                        : "UNKNOWN";
+                String clientIp =
+                        exchange.getRequest()
+                                .getRemoteAddress() != null
+                                ? exchange.getRequest()
+                                .getRemoteAddress()
+                                .getAddress()
+                                .getHostAddress()
+                                : "UNKNOWN";
 
-                log.warn("Rate limit exceeded | requestId={} | IP={}",
+                log.warn(
+                        "Rate limit exceeded | requestId={} | IP={}",
                         requestId,
-                        clientIp);
+                        clientIp
+                );
             }
-        }));
+
+            return Mono.empty();
+        });
+
+        return chain.filter(exchange);
     }
 
     @Override
     public int getOrder() {
-        return Ordered.LOWEST_PRECEDENCE;
+        return -1;
     }
 }
