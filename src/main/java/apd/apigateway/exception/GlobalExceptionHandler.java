@@ -1,114 +1,119 @@
 package apd.apigateway.exception;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.cloud.gateway.support.NotFoundException;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.io.buffer.DataBuffer;
+import org.springframework.core.io.buffer.DataBufferFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
+import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+import java.util.UUID;
 
 @Slf4j
-@RestControllerAdvice
-public class GlobalExceptionHandler {
+@Configuration
+@Order(-2)
+@RequiredArgsConstructor
+public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
 
-    private ResponseEntity<?> buildResponse(HttpStatus status, String message) {
-        return ResponseEntity.status(status).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", status.value(),
-                        "error", status.getReasonPhrase(),
-                        "message", message
-                )
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public Mono<Void> handle(ServerWebExchange exchange, Throwable throwable) {
+        String correlationId = UUID.randomUUID().toString();
+
+        log.error("Error occurred [CorrelationId: {}] - {}: {}",
+                correlationId, throwable.getClass().getSimpleName(), throwable.getMessage());
+
+        if (log.isDebugEnabled()) {
+            log.debug("Stack trace: ", throwable);
+        }
+
+        ServerHttpResponse response = exchange.getResponse();
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+        response.getHeaders().add("X-Correlation-Id", correlationId);
+
+        HttpStatus status = determineHttpStatus(throwable);
+        String message = determineMessage(throwable);
+
+        response.setStatusCode(status);
+
+        ErrorMessage errorMessage = new ErrorMessage(
+                status.value(),
+                new Date(),
+                message,
+                throwable.getClass().getSimpleName()
         );
+
+        // Add correlation ID to error message
+        errorMessage.setCorrelationId(correlationId);
+
+        return writeResponse(response, errorMessage);
     }
 
-    // =========================
-    // GATEWAY ROUTE NOT FOUND
-    // =========================
-    @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<?> handleGatewayNotFound(NotFoundException ex) {
-        log.error("Gateway route not found: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.NOT_FOUND,
-                "Requested API route not found in Gateway"
-        );
+    private HttpStatus determineHttpStatus(Throwable throwable) {
+        if (throwable instanceof NotFoundException) {
+            return HttpStatus.NOT_FOUND;
+        } else if (throwable instanceof ResponseStatusException) {
+            ResponseStatusException rse = (ResponseStatusException) throwable;
+            return HttpStatus.valueOf(rse.getStatusCode().value());
+        } else if (throwable instanceof ServiceUnavailableException) {
+            return HttpStatus.SERVICE_UNAVAILABLE;
+        } else if (throwable instanceof DataIntegrityViolationException) {
+            return HttpStatus.CONFLICT;
+        } else if (throwable instanceof MethodArgumentNotValidException) {
+            return HttpStatus.BAD_REQUEST;
+        } else if (throwable instanceof IllegalArgumentException) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
-    // =========================
-    // SPRING STATUS EXCEPTION
-    // =========================
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<?> handleResponseStatus(ResponseStatusException ex) {
-        log.error("ResponseStatusException: {}", ex.getMessage());
-
-        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
-
-        return buildResponse(
-                status,
-                ex.getReason() != null ? ex.getReason() : ex.getMessage()
-        );
+    private String determineMessage(Throwable throwable) {
+        if (throwable instanceof NotFoundException) {
+            return "The requested endpoint does not exist in API Gateway.";
+        } else if (throwable instanceof ServiceUnavailableException) {
+            return throwable.getMessage();
+        } else if (throwable instanceof ResponseStatusException) {
+            ResponseStatusException rse = (ResponseStatusException) throwable;
+            return rse.getReason() != null ? rse.getReason() : "Service error occurred";
+        } else if (throwable instanceof DataIntegrityViolationException) {
+            return "Duplicate or invalid data.";
+        } else if (throwable instanceof MethodArgumentNotValidException) {
+            MethodArgumentNotValidException ex = (MethodArgumentNotValidException) throwable;
+            if (ex.getBindingResult().getAllErrors().isEmpty()) {
+                return "Validation failed";
+            }
+            return ex.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+        } else if (throwable instanceof IllegalArgumentException) {
+            return throwable.getMessage();
+        }
+        return "An unexpected error occurred. Please try again later.";
     }
 
-    // =========================
-    // VALIDATION ERROR
-    // =========================
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidation(MethodArgumentNotValidException ex) {
-        String message = ex.getBindingResult()
-                .getAllErrors()
-                .get(0)
-                .getDefaultMessage();
-
-        log.error("Validation error: {}", message);
-
-        return buildResponse(HttpStatus.BAD_REQUEST, message);
-    }
-
-    // =========================
-    // DATA CONFLICT
-    // =========================
-    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
-    public ResponseEntity<?> handleDataConflict(Exception ex) {
-        log.error("Data integrity violation: {}", ex.getMessage());
-        return buildResponse(HttpStatus.CONFLICT, "Data conflict or duplicate entry");
-    }
-
-    // =========================
-    // CUSTOM NOT FOUND
-    // =========================
-    @ExceptionHandler(apd.apigateway.exception.NotFoundException.class)
-    public ResponseEntity<?> handleCustomNotFound(apd.apigateway.exception.NotFoundException ex) {
-        log.error("Custom NotFoundException: {}", ex.getMessage());
-        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage());
-    }
-
-    // =========================
-    // SERVICE UNAVAILABLE (FALLBACK)
-    // =========================
-    @ExceptionHandler(ServiceUnavailableException.class)
-    public ResponseEntity<?> handleServiceUnavailable(ServiceUnavailableException ex) {
-        log.error("Service unavailable: {}", ex.getMessage());
-        return buildResponse(
-                HttpStatus.SERVICE_UNAVAILABLE,
-                ex.getMessage()
-        );
-    }
-
-    // =========================
-    // GLOBAL FALLBACK
-    // =========================
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<?> handleGeneric(Exception ex) {
-        log.error("Unexpected error: ", ex);
-
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "Internal server error occurred"
-        );
+    private Mono<Void> writeResponse(ServerHttpResponse response, ErrorMessage errorMessage) {
+        return response.writeWith(Mono.fromSupplier(() -> {
+            DataBufferFactory bufferFactory = response.bufferFactory();
+            try {
+                byte[] bytes = objectMapper.writeValueAsBytes(errorMessage);
+                return bufferFactory.wrap(bytes);
+            } catch (Exception e) {
+                log.error("Failed to serialize error response", e);
+                byte[] fallbackBytes = "{\"error\":\"Internal server error\"}".getBytes(StandardCharsets.UTF_8);
+                return bufferFactory.wrap(fallbackBytes);
+            }
+        }));
     }
 }
